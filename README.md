@@ -1,7 +1,3 @@
-Claro! Baseado no seu relatório e no seu código, aqui está um **README.md** bem estruturado para o seu projeto **EmbarcOhm**:
-
----
-
 # EmbarcOhm
 
 ### Desenvolvido por: Luiz Rosário  
