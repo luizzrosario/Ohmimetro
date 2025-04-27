@@ -1,14 +1,3 @@
-/*
- * Por: Wilton Lacerda Silva
- *    Ohmímetro utilizando o ADC da BitDogLab
- *
- * 
- * Neste exemplo, utilizamos o ADC do RP2040 para medir a resistência de um resistor
- * desconhecido, utilizando um divisor de tensão com dois resistores.
- * O resistor conhecido é de 10k ohm e o desconhecido é o que queremos medir.
- *
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -17,6 +6,7 @@
 #include "hardware/i2c.h"
 #include "lib/ssd1306.h"
 #include "lib/font.h"
+#include "ws2812.pio.h"
 #define I2C_PORT i2c1
 #define I2C_SDA 14
 #define I2C_SCL 15
@@ -24,6 +14,8 @@
 #define ADC_PIN 28 // GPIO para o voltímetro
 #define Botao_A 5  // GPIO para botão A
 #define TAMANHO_E24 (sizeof(resistores_E24) / sizeof(resistores_E24[0]))
+#define WS2812_PIN 7
+#define MAX_LEDS 25
 
 int R_conhecido = 10000;   // Resistor de 10k ohm
 float R_x = 0.0;           // Resistor desconhecido
@@ -39,6 +31,9 @@ const float resistores_E24[] = {
   39000, 43000, 47000, 51000, 56000, 62000, 68000,
   75000, 82000, 91000, 100000
 };
+static int sm = 0;
+static PIO pio = pio0;
+static uint32_t grb[MAX_LEDS];
 
 float encontrarValorMaisProximo(float resistor) {
   float maisProximo = resistores_E24[0];
@@ -70,15 +65,68 @@ const char* cores[] = {
   "PRA"   // 11 - Prata
 };
 
+// Função para configurar a cor de um pixel específico
+static void configurar_pixel(uint32_t porcentagem_cores[][3], int index, const uint32_t cor[3])
+{
+    porcentagem_cores[index][0] = cor[0]; // Vermelho
+    porcentagem_cores[index][1] = cor[1]; // Verde
+    porcentagem_cores[index][2] = cor[2]; // Azul
+}
+
+// Função para montar o buffer de cores com base no símbolo escolhido
+static void montar_buffer_simbolo(int numero, uint32_t porcentagem_cores[][3], int index)
+{
+    const uint32_t cores[12][3] = {
+      {0, 0, 0},       // PRE - Preto
+      {50, 25, 0},     // MAR - Marrom
+      {100, 0, 0},     // VER - Vermelho
+      {100, 50, 0},    // LAR - Laranja
+      {100, 100, 0},   // AMA - Amarelo
+      {0, 100, 0},     // VRD - Verde
+      {0, 0, 100},     // AZU - Azul
+      {50, 0, 50},     // VIO - Violeta
+      {50, 50, 50},    // CIN - Cinza
+      {100, 100, 100}, // BRA - Branco
+      {85, 70, 0},     // DOU - Dourado
+      {75, 75, 75}     // PRA - Prata
+    };
+
+    // Acende apenas o LED correspondente à faixa
+    configurar_pixel(porcentagem_cores, index, cores[numero]);
+}
+
+static inline void put_pixel(uint32_t pixel_grb) {
+  pio_sm_put_blocking(pio, sm, pixel_grb << 8u); // Já shiftado
+}
+
+static void enviar_para_leds() {
+  for (int i = 0; i < MAX_LEDS; ++i) {
+      put_pixel(grb[i]);
+  }
+}
+
+// Função para converter porcentagens de cores RGB para o formato GRB
+static void rgb_to_grb(uint32_t porcentagem_cores[][3])
+{
+    for (int i = 0; i < MAX_LEDS; i++)
+    {
+        uint8_t r = porcentagem_cores[i][0] ? 255 * (porcentagem_cores[i][0] / 100.0) : 0;
+        uint8_t g = porcentagem_cores[i][1] ? 255 * (porcentagem_cores[i][1] / 100.0) : 0;
+        uint8_t b = porcentagem_cores[i][2] ? 255 * (porcentagem_cores[i][2] / 100.0) : 0;
+        grb[i] = (g << 16) | (r << 8) | b;
+    }
+}
+
 ssd1306_t ssd; // Variável para o display OLED (antes de declarar a função para não dar erro de compilação)
 
-// Função para desenhar as cores no OLED
 void mostrarCoresResistor(float valor) {
   float valorProximo = encontrarValorMaisProximo(valor);
   int digito1, digito2, multiplicador = 0;
   int valorInt = (int)valorProximo;
 
-  // Normalizar o valor para pegar dois dígitos
+  uint32_t porcentagem_cores[MAX_LEDS][3] = {0}; // Zerar tudo
+
+  // Ajuste para pegar o valor dos 2 primeiros dígitos e multiplicador
   while (valorInt >= 100) {
     valorInt /= 10;
     multiplicador++;
@@ -89,12 +137,19 @@ void mostrarCoresResistor(float valor) {
 
   // Exibir no display
   ssd1306_draw_string(&ssd, cores[digito1], 23, 20);   // Primeira faixa
-  ssd1306_draw_string(&ssd, cores[digito2], 53, 20);  // Segunda faixa
+  ssd1306_draw_string(&ssd, cores[digito2], 53, 20);   // Segunda faixa
   ssd1306_draw_string(&ssd, cores[multiplicador], 83, 20); // Multiplicador
 
-  // Opcional: Poderia mostrar a tolerância aqui se quiser (normalmente Marrom ou Dourado)
-  // ssd1306_draw_string(&ssd, "DOU", 98, 16);  // Exemplo de tolerância 5%
+  // Preencher LEDs: apenas 3 LEDs acesos, um para cada faixa
+  montar_buffer_simbolo(digito1, porcentagem_cores, 14);  // Primeiro LED para o primeiro dígito
+  montar_buffer_simbolo(digito2, porcentagem_cores, 12);        // Segundo LED para o segundo dígito
+  montar_buffer_simbolo(multiplicador, porcentagem_cores, 10);        // Terceiro LED para o multiplicador
+
+  // Converter e enviar para LEDs
+  rgb_to_grb(porcentagem_cores);
+  enviar_para_leds();
 }
+
 
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
@@ -134,6 +189,14 @@ int main()
 
   adc_init();
   adc_gpio_init(ADC_PIN); // GPIO 28 como entrada analógica
+
+  uint offset = pio_add_program(pio, &ws2812_program);
+  ws2812_program_init(pio, sm, offset, WS2812_PIN, 800000, false);
+
+  for (int i = 0; i < MAX_LEDS; i++)
+  {
+      pio_sm_put_blocking(pio, sm, 0);
+  }
 
   float tensao;
   char str_x[5]; // Buffer para armazenar a string
