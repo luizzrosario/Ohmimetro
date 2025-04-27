@@ -108,5 +108,5 @@ Construir um **ohmímetro funcional** que:
 
 ## Links
 
-- **Código-Fonte**: [A ser disponibilizado]  
-- **Vídeo de Demonstração**: [A ser disponibilizado]
+- **Código-Fonte**: [GitHub] <https://github.com/luizzrosario/Ohmimetro> 
+- **Vídeo de Demonstração**: [YouTube] <https://www.youtube.com/watch?v=RHq0hsYkM5w>
