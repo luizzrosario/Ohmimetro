@@ -1,4 +1,0 @@
-[wokwi]
-version = 1
-firmware = 'build/Ohmimetro.uf2'
-elf = 'build/Ohmimetro.elf'

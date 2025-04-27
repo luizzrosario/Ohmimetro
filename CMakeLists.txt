@@ -22,8 +22,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
-# Define o nome do projeto como Teste_ADC_Display, suportando C, C++ e Assembly.
-project(Teste_Voltimetro C CXX ASM) 
+# Define o nome do projeto como Ohmimetro, suportando C, C++ e Assembly.
+project(Ohmimetro C CXX ASM) 
 pico_sdk_init()
 
 
