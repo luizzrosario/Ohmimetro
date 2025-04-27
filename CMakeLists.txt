@@ -13,8 +13,6 @@ if (EXISTS ${picoVscode})
 endif()
 # ====================================================================================
 
-
-
 cmake_minimum_required(VERSION 3.13)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -25,7 +23,6 @@ include(pico_sdk_import.cmake)
 # Define o nome do projeto como Ohmimetro, suportando C, C++ e Assembly.
 project(Ohmimetro C CXX ASM) 
 pico_sdk_init()
-
 
 add_executable(${PROJECT_NAME}  
         Ohmimetro.c  # Código principal 
@@ -44,10 +41,7 @@ target_link_libraries(${PROJECT_NAME}
         hardware_pio
         )
 
-
 pico_generate_pio_header(Ohmimetro ${CMAKE_CURRENT_LIST_DIR}/lib/ws2812.pio)
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
 pico_add_extra_outputs(${PROJECT_NAME})
-
-
